@@ -9,7 +9,7 @@ import { useUser, useAuth } from "@clerk/clerk-react";
 import { Toaster } from "react-hot-toast";
 import { toast, ToastContainer, Slide } from "react-toastify";
 
-const API_BASE = "http://localhost:4000";
+const API_BASE = "https://skillforge-backend-td5n.onrender.com";
 
 const StarIcon = ({ filled = false, half = false, className = "" }) => {
   if (half)
