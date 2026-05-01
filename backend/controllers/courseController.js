@@ -1,25 +1,33 @@
-import Course from "../models/Course.js";
+// controllers/courseController.js
+import fs from "fs";
+import path from "path";
+import Course from "../models/courseModel.js";
 import { getAuth } from "@clerk/express";
 
-//Helper Function
-const tollNumber = (v,fallback) => {
-    if(typeof v === "number"){
-        return v;
-    } ;
-    if(typeof v === "string" && v.trim() !== ""){
-        return fallback ;
-    } ;
-    const n = Number(v) ;
-    return Number.isFinite(n) ? n : fallback ;
-} ;
+/**
+ * Helpers
+ */
+const toNumber = (v, fallback = 0) => {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() === "") return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 const parseJSONSafe = (maybe) => {
-    if (!maybe) return null;
-    if (typeof maybe === "object") return maybe;
-    try {
-      return JSON.parse(maybe);
-    } catch (e) {      return null;
-    }
-}
+  if (!maybe) return null;
+  if (typeof maybe === "object") return maybe;
+  try {
+    return JSON.parse(maybe);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Compute derived fields (lecture totals, course totalDuration, totalLectures)
+ * Mutates and returns courseObj
+ */
 const computeDerivedFields = (courseObj) => {
   let totalCourseMinutes = 0;
   if (!Array.isArray(courseObj.lectures)) courseObj.lectures = [];
@@ -70,6 +78,13 @@ const computeDerivedFields = (courseObj) => {
   return courseObj;
 };
 
+/**
+ * Build absolute image URL from stored value.
+ * Accepts stored forms:
+ *  - full url (http/https) -> returned as-is
+ *  - starting with "/" -> prefix host
+ *  - filename or "uploads/filename" -> prefix "/uploads/<filename>"
+ */
 const makeImageAbsolute = (rawImage, req) => {
   if (!rawImage) return "";
   const image = String(rawImage || "");
@@ -84,71 +99,94 @@ const makeImageAbsolute = (rawImage, req) => {
   return `${req.protocol}://${req.get("host")}/uploads/${image}`;
 };
 
+/**
+ * GET /api/course/public
+ * Query options:
+ *  - ?home=true        => returns top courses limited to 8 (homepage)
+ *  - ?type=top|regular|all => filter by courseType
+ *  - ?limit=N          => limit number of results
+ *
+ * Response: { success: true, items: [...] }
+ */
 export const getPublicCourses = async (req, res) => {
   try {
-    const { home, type = 'all' , limit } = req.query;
+    const { home, type = "all", limit } = req.query;
+
     let filter = {};
     if (home === "true") {
-        filter.courseType = 'top' ;
+      filter.courseType = "top";
     } else if (type === "top") {
-        filter.courseType = 'top' ;
+      filter.courseType = "top";
     } else if (type === "regular") {
-        filter.courseType = 'new' ;
+      filter.courseType = "regular";
     }
+
     const q = Course.find(filter).sort({ createdAt: -1 });
-    if (home ==='true') {
-        q.limit(Number(limit) || 8) ;
-    }
-    else if (limit) {
-        q.limit(Number(limit)) ;
+
+    if (home === "true") {
+      q.limit(Number(limit || 8));
+    } else if (limit) {
+      q.limit(Number(limit));
     }
 
     const courses = await q.lean();
-    const mapped = courses.map((c) => {        return {
-        ...c,
-        image:imageUrl
-      }
+
+    const mapped = courses.map((c) => {
+      const imageUrl = makeImageAbsolute(c.image || "", req);
+      return { ...c, image: imageUrl };
     });
-    return res.json({ success: true, items : mapped });
-    } catch (err) {
-        console.error("Error fetching public courses:", err);
-        return res.status(500).json({ success: false, error: "Server error" });
-    }
+
+    return res.json({ success: true, items: mapped });
+  } catch (err) {
+    console.error("getPublicCourses error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
 };
 
+/**
+ * GET /api/course
+ * Admin-like list (no auth here)
+ */
 export const getCourses = async (req, res) => {
-    try {
-        const courses = await Course.find().sort({ createdAt: -1 }).lean();
-        const mapped = courses.map((c) => {
-            return {
-                ...c,
-                image: makeImageAbsolute(c.image || "", req)
-            };
-        });
-        return res.json({ success: true, items: mapped });
-    }
-    catch (err) {
-        console.error("Error fetching courses:", err);
-        return res.status(500).json({ success: false, error: "Server error" });
-    }
+  try {
+    const courses = await Course.find().sort({ createdAt: -1 }).lean();
+    const mapped = courses.map((c) => ({ ...c, image: makeImageAbsolute(c.image || "", req) }));
+    return res.json({ success: true, courses: mapped });
+  } catch (err) {
+    console.error("getCourses error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
 };
 
+/**
+ * GET /api/course/:id
+ */
 export const getCourseById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const course = await Course.findById(id).lean();
-        if (!course) {
-            return res.status(404).json({ success: false, error: "Course not found" });
-        }
-        course.image = makeImageAbsolute(course.image || "", req);
-        return res.json({ success: true, item: course });
-    }
-    catch (err) {
-        console.error("Error fetching course by ID:", err);
-        return res.status(500).json({ success: false, error: "Server error" });
-    }
+  try {
+    const { id } = req.params;
+    const course = await Course.findById(id).lean();
+    if (!course) return res.status(404).json({ success: false, error: "Not found" });
+
+    course.image = makeImageAbsolute(course.image || "", req);
+    return res.json({ success: true, course });
+  } catch (err) {
+    console.error("getCourseById error:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
 };
 
+/**
+ * POST /api/course
+ * expects multipart/form-data (image optional)
+ * fields supported:
+ *  - name, teacher, rating, pricingType, overview, courseType, totalLectures
+ *  - price (JSON string or fields like price.original / price.sale)
+ *  - totalDuration (JSON string or fields totalDuration.hours / totalDuration.minutes)
+ *  - lectures (JSON string array)
+ *  - image file (req.file) saved by multer as uploads/<filename>
+ *
+ * NOTE: image stored as relative path: "/uploads/<filename>" (so static serving will work)
+ */
 export const createCourse = async (req, res) => {
   try {
     const body = req.body || {};
@@ -318,6 +356,27 @@ export const rateCourse = async (req, res) => {
     if (err && err.name === "ValidationError") {
       return res.status(400).json({ success: false, message: err.message });
     }
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * GET /api/course/:courseId/my-rating
+ * Returns the logged-in user's rating for a course (if any)
+ */
+export const getMyRating = async (req, res) => {
+  try {
+    const { userId } = getAuth(req) || {};
+    if (!userId) return res.status(401).json({ success: false, message: "Authentication required" });
+
+    const { courseId } = req.params;
+    const course = await Course.findById(courseId).lean();
+    if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+    const my = (course.ratings || []).find(r => String(r.userId) === String(userId)) || null;
+    return res.json({ success: true, myRating: my ? { rating: my.rating, comment: my.comment } : null });
+  } catch (err) {
+    console.error("getMyRating error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
