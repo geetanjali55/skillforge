@@ -6,7 +6,7 @@ import Contact from "./pages/Contact/Contact";
 import Faculty from "./pages/Faculty/Faculty";
 import Courses from "./pages/Courses/Courses";
 import { ArrowUp } from "lucide-react";
-import CourseDetailPageHome from "./pages/CourseDetailPageHome/CourseDetailPageHome";
+import CourseDetailPageHome from "./pages/CourseDetailPage/CourseDetailPage";
 import CourseDetailPage from "./pages/CourseDetailPage/CourseDetailPage";
 import VerifyPaymentPage from "../VerifyPaymentPage";
 import MyCoursePage from "./pages/MyCoursePage/MyCoursePage";
