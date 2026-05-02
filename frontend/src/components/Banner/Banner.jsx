@@ -36,13 +36,12 @@ const Banner = () => {
             </span>
 
             <h1 className={bannerStyles.heading}>
-              <span className={bannerStyles.headingSpan1}>Build Amazing</span>
-              <span className={bannerStyles.headingSpan2}>Digital Products</span>
+              <span className={bannerStyles.headingSpan1}>Learn Skills</span>
+              <span className={bannerStyles.headingSpan2}>That Matter</span>
             </h1>
 
             <p className={bannerStyles.description}>
-              Create beautiful, responsive web applications with our powerful
-              tools and components. Start building your next project today.
+              Explore high-quality courses designed to boost your career and real-world knowledge.
             </p>
 
             {/* Features */}
