@@ -219,23 +219,7 @@ const Footer = () => {
               })}
             </div>
 
-            <div className={footerStyles.designCredit}>
-              <div className={footerStyles.designCreditContainer}>
-                <div className={footerStyles.designCreditGradient} />
-                <p className={footerStyles.designCreditText}>
-                  Design by{' '}
-                  <a
-                    href={contactInfo.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={footerStyles.designCreditLink}
-                    aria-label={contactInfo.designBy}
-                  >
-                    {contactInfo.designBy}
-                  </a>
-                </p>
-              </div>
-            </div>
+            
           </div>
         </div>
 

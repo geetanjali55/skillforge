@@ -32,7 +32,7 @@ const VerifyPaymentPage = () => {
         return;
       }
 
-      // try to get Clerk token (if available)
+      // try to get Clerk token
       let clerkToken = null;
       try {
         clerkToken = await getToken();
@@ -47,7 +47,7 @@ const VerifyPaymentPage = () => {
         const res = await axios.get(`${API_BASE}/api/booking/confirm`, {
           params: { session_id },
           headers,
-          withCredentials: true, // ensure cookies sent for server getAuth
+          withCredentials: true,
           timeout: 15000,
         });
 
@@ -56,12 +56,10 @@ const VerifyPaymentPage = () => {
             // success -> redirect to user's courses/bookings
             navigate("/mycourses?payment_status=Paid", { replace: true });
           } else {
-            // backend responded but reported failure
             navigate("/my-courses?payment_status=Unpaid", { replace: true });
           }
         }
       } catch (err) {
-        // On any error redirect to failure route (you can adjust)
         if (!cancelled)
           navigate("/mycourses?payment_status=Unpaid", { replace: true });
       }
@@ -74,7 +72,6 @@ const VerifyPaymentPage = () => {
     };
   }, [location.search, navigate, getToken]);
 
-  // no UI — returns null so nothing is rendered
   return null;
 };
 
